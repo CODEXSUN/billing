@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil, Save, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
 import { Label } from "@codexsun/ui/components/label";

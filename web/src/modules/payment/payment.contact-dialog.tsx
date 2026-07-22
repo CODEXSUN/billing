@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Save, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import { DialogFooter, DialogHeader, DialogTitle } from "@codexsun/ui/components/dialog";
 import { Input } from "@codexsun/ui/components/input";

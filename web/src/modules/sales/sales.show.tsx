@@ -17,7 +17,7 @@ import {
   UserRound,
   X
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@codexsun/ui/components/card";
 import { Input } from "@codexsun/ui/components/input";

@@ -1,6 +1,6 @@
 {
   "name": "@codexsun/billing",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "description": "CODEXSUN billing application",
   "private": false,
   "type": "module",

@@ -2,9 +2,24 @@
 
 ## Version State
 
-Current version: 1.0.43
-Release tag: v-1.0.43
-Changelog label: v 1.0.43
+Current version: 1.0.44
+Release tag: v-1.0.44
+Changelog label: v 1.0.44
+
+## v-1.0.44
+
+### [v 1.0.44] 2026-07-22 11:19 pm - Restore shared bottom-right notifications
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Routed Billing document, settings, and report notifications through the UI-owned Sonner export so
+  every module publishes to the toaster mounted by the composing application.
+- Removed Billing's direct Sonner dependency while preserving module-owned notification messages.
+- Bumped repository version to 1.0.44.
 
 ## v-1.0.43
 

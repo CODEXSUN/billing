@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Printer, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import { cn } from "@codexsun/ui/lib/utils";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";

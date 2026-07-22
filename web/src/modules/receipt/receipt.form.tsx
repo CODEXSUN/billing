@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Save, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
 import { Textarea } from "@codexsun/ui/components/textarea";

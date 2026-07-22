@@ -13,7 +13,7 @@ import {
   Trash2,
   X
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import {
   Dialog,
