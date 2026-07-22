@@ -266,7 +266,7 @@ function openBillingDatabase(databaseName: string) {
         password: env.DB_PASSWORD,
         port: env.DB_PORT,
         connectionLimit: 4,
-        idleTimeout: 60_000,
+        idleTimeout: connectionIdleMs + 60_000,
         maxIdle: 1,
         queueLimit: 100,
         timezone: "Z",
