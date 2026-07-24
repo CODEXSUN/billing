@@ -6,6 +6,10 @@ import { Button } from "@codexsun/ui/components/button";
 import { GlobalLoader } from "@codexsun/ui/components/global-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@codexsun/ui/components/card";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
+import {
+  useCompanyBranding,
+  type CompanyRecord
+} from "@codexsun/core-web/modules/organisation/company";
 import { PageTitle } from "../../shared/document/PageTitle";
 import { BillingCompanyName, BillingDocumentHeader, useBillingSettings } from "../settings";
 import { useSaleRecord } from "./sales.hooks";
@@ -28,9 +32,17 @@ export function SalesPrintRoutePage() {
   const autoPrintTriggered = useRef(false);
   const [printCopies, setPrintCopies] = useState<readonly SalePrintCopy[]>(["original"]);
   const sale = saleQuery.data;
+  const companyBranding = useCompanyBranding(sale?.companyId ?? null);
 
   useEffect(() => {
-    if (!autoPrint || !sale || settingsQuery.isLoading || autoPrintTriggered.current) return;
+    if (
+      !autoPrint ||
+      !sale ||
+      settingsQuery.isLoading ||
+      companyBranding.isLoading ||
+      autoPrintTriggered.current
+    )
+      return;
     const closeAfterPrint = () => window.close();
     window.addEventListener("afterprint", closeAfterPrint, { once: true });
     const timeout = window.setTimeout(() => {
@@ -41,7 +53,7 @@ export function SalesPrintRoutePage() {
       window.clearTimeout(timeout);
       window.removeEventListener("afterprint", closeAfterPrint);
     };
-  }, [autoPrint, sale, settingsQuery.isLoading]);
+  }, [autoPrint, companyBranding.isLoading, sale, settingsQuery.isLoading]);
 
   function togglePrintCopy(copy: SalePrintCopy) {
     setPrintCopies((current) =>
@@ -53,7 +65,7 @@ export function SalesPrintRoutePage() {
     );
   }
 
-  if (saleQuery.isLoading || settingsQuery.isLoading) {
+  if (saleQuery.isLoading || settingsQuery.isLoading || companyBranding.isLoading) {
     return <GlobalLoader />;
   }
 
@@ -132,11 +144,20 @@ const printCopyOptions: Array<{ label: string; value: SalePrintCopy }> = [
 
 export function SalePrintDocument({ copy, sale }: { copy: SalePrintCopy; sale: Sale }) {
   const billingSettings = useBillingSettings().data;
+  const company = useCompanyBranding(sale.companyId).company;
   const addressMode = billingSettings?.printing.addressMode ?? "billing_and_shipping";
   const showPo = billingSettings?.layout.usePo ?? false;
   const showDc = billingSettings?.layout.useDc ?? false;
   const showColour = billingSettings?.layout.useColour ?? false;
   const showSize = billingSettings?.layout.useSize ?? false;
+  const showEinvoiceDetails =
+    (billingSettings?.layout.useEinvoice ?? false) && hasEinvoicePrintData(sale);
+  const primaryBankAccount =
+    billingSettings?.printing.printAccountNumber === true
+      ? (company?.bankAccounts.find(
+          (account) => account.isPrimary && hasDisplayValue(account.accountNumber)
+        ) ?? null)
+      : null;
   const statesQuery = useQuery({
     queryFn: () => listSaleLocations("states"),
     queryKey: ["billing", "sale", "print", "states"]
@@ -160,10 +181,12 @@ export function SalePrintDocument({ copy, sale }: { copy: SalePrintCopy; sale: S
           pageIndex={pageIndex}
           pageCount={pages.length}
           addressMode={addressMode}
+          bankAccount={primaryBankAccount}
           billingAddress={billingAddress}
           shippingAddress={shippingAddress}
           showColour={showColour}
           showDc={showDc}
+          showEinvoiceDetails={showEinvoiceDetails}
           showPo={showPo}
           showSize={showSize}
           sale={sale}
@@ -181,10 +204,12 @@ function SalePrintPage({
   pageIndex,
   pageCount,
   addressMode,
+  bankAccount,
   billingAddress,
   shippingAddress,
   showColour,
   showDc,
+  showEinvoiceDetails,
   showPo,
   showSize,
   sale
@@ -196,10 +221,12 @@ function SalePrintPage({
   pageIndex: number;
   pageCount: number;
   addressMode: "billing_only" | "billing_and_shipping";
+  bankAccount: CompanyRecord["bankAccounts"][number] | null;
   billingAddress: { address: string; state: string };
   shippingAddress: { address: string; state: string };
   showColour: boolean;
   showDc: boolean;
+  showEinvoiceDetails: boolean;
   showPo: boolean;
   showSize: boolean;
   sale: Sale;
@@ -240,18 +267,29 @@ function SalePrintPage({
 
         <BillingDocumentHeader />
 
-        {addressMode === "billing_and_shipping" ? (
-          <section className="space-y-1 border-b border-slate-300 px-2 py-2 text-[10px]">
+        <section className="grid border-b border-slate-300 text-[10px] sm:grid-cols-2">
+          <div className={`space-y-1 px-2 py-2 ${showEinvoiceDetails ? "" : "sm:col-span-2"}`}>
             <PrintPair label="Invoice No:">{sale.invoiceNumber || sale.saleNumber}</PrintPair>
             <PrintPair label="Date:">{formatDate(sale.issuedOn)}</PrintPair>
             <PrintPair label="Work Order:">{sale.workOrderNo || "-"}</PrintPair>
-          </section>
-        ) : null}
+          </div>
+          {showEinvoiceDetails ? (
+            <div className="border-l border-slate-300 px-2 py-2">
+              <EinvoiceDetails sale={sale} />
+            </div>
+          ) : null}
+        </section>
 
         <section className="grid border-b border-slate-300 text-[10px] sm:grid-cols-2">
-          <div className="min-h-[7.75rem] px-2 py-2">
+          <div
+            className={`min-h-[7.75rem] px-2 py-2 ${
+              addressMode === "billing_only" ? "sm:col-span-2" : ""
+            }`}
+          >
             <div className="font-medium">Buyer (Bill to)</div>
-            <div className="mt-1 font-semibold">M/s. {sale.customerName}</div>
+            <div className="mt-1 text-[11px] font-semibold tracking-wide">
+              M/s. {sale.customerName}
+            </div>
             <div className="mt-1 whitespace-pre-wrap">
               {billingAddress.address || "Address not set"}
             </div>
@@ -262,29 +300,23 @@ function SalePrintPage({
               <span>{billingAddress.state || "-"}</span>
             </div>
           </div>
-          <div className="min-h-[7.75rem] border-l border-slate-300 px-2 py-2">
-            {addressMode === "billing_only" ? (
-              <DocumentDetails
-                number={sale.saleNumber}
-                date={formatDate(sale.issuedOn)}
-                workOrder={sale.workOrderNo}
-              />
-            ) : (
-              <>
-                <div className="font-medium">Buyer (Ship to)</div>
-                <div className="mt-1 font-semibold">M/s. {sale.customerName}</div>
-                <div className="mt-1 whitespace-pre-wrap">
-                  {shippingAddress.address || "Address not set"}
-                </div>
-                <div className="mt-1 grid grid-cols-[7rem_1fr] gap-x-2">
-                  <span>GSTIN/UIN</span>
-                  <span>-</span>
-                  <span>State Name</span>
-                  <span>{shippingAddress.state || "-"}</span>
-                </div>
-              </>
-            )}
-          </div>
+          {addressMode === "billing_and_shipping" ? (
+            <div className="min-h-[7.75rem] border-l border-slate-300 px-2 py-2">
+              <div className="font-medium">Buyer (Ship to)</div>
+              <div className="mt-1 text-[11px] font-semibold tracking-wide">
+                M/s. {sale.customerName}
+              </div>
+              <div className="mt-1 whitespace-pre-wrap">
+                {shippingAddress.address || "Address not set"}
+              </div>
+              <div className="mt-1 grid grid-cols-[7rem_1fr] gap-x-2">
+                <span>GSTIN/UIN</span>
+                <span>-</span>
+                <span>State Name</span>
+                <span>{shippingAddress.state || "-"}</span>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section>
@@ -295,6 +327,8 @@ function SalePrintPage({
               {showDc ? <col className="w-[7%]" /> : null}
               <col />
               <col className="w-[10ch]" />
+              {showColour ? <col className="w-[7%]" /> : null}
+              {showSize ? <col className="w-[6%]" /> : null}
               <col className="w-[5.5%]" />
               <col className="w-[8%]" />
               <col className="w-[9%]" />
@@ -303,11 +337,11 @@ function SalePrintPage({
               <col className="w-[9%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-slate-300">
+              <tr className="border-b-[3px] border-double border-slate-300">
                 {headings.map((heading) => (
                   <th
                     key={heading}
-                    className={`border-r border-slate-300 py-2 text-center font-semibold last:border-r-0 ${
+                    className={`border-r border-slate-300 py-1.5 text-center font-semibold leading-tight last:border-r-0 ${
                       heading === "Particulars" ? "px-1.5 text-left" : "px-1"
                     }`}
                   >
@@ -369,8 +403,7 @@ function SalePrintPage({
           <>
             <section className="grid grid-cols-[1fr_12rem] border-t border-slate-300">
               <div className="border-r border-slate-300 px-2 py-2 text-[9px] leading-4">
-                <div className="font-medium">E&amp;OE</div>
-                <div className="mt-1">
+                <div>
                   We hereby certify that our registration under the GST Act 2017 is in force on the
                   date on which sale of goods specified in this invoice is made by us and the sale
                   is effected in the regular course of business.
@@ -378,7 +411,8 @@ function SalePrintPage({
                 <div className="mt-1 font-semibold">
                   * Goods once sold will not be taken back unless agreed in writing.
                 </div>
-                <div className="mt-5">
+                {bankAccount ? <SalePrintBankDetails bankAccount={bankAccount} /> : null}
+                <div className={bankAccount ? "mt-3" : "mt-5"}>
                   <div className="font-medium">Amount (in words)</div>
                   <div className="mt-1">{amountInWords(sale.amount)}</div>
                 </div>
@@ -496,7 +530,13 @@ function SalePrintTotalRow({
 }) {
   return (
     <tr className="border-t border-slate-300 font-semibold">
-      <td className="border-r border-slate-200 px-1 py-2 text-right" colSpan={leadingColumnCount}>
+      <td className="whitespace-nowrap border-r border-slate-200 px-1.5 py-2 text-left" colSpan={2}>
+        E&amp;OE
+      </td>
+      <td
+        className="border-r border-slate-200 px-1 py-2 text-right"
+        colSpan={leadingColumnCount - 2}
+      >
         Total
       </td>
       <td className="border-r border-slate-200 px-1 py-2 text-center">
@@ -542,27 +582,89 @@ function PrintPair({ children, label }: { children: string; label: string }) {
   );
 }
 
-function DocumentDetails({
-  date,
-  number,
-  workOrder
+function EinvoiceDetails({ sale }: { sale: Sale }) {
+  return (
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 gap-y-1">
+      <span className="whitespace-nowrap font-semibold">IRN :</span>
+      <span className="col-span-3 break-all font-semibold">{displayValue(sale.einvoice.irn)}</span>
+      <span className="whitespace-nowrap font-semibold">Ack No.:</span>
+      <span className="font-semibold">{displayValue(sale.einvoice.ackNo)}</span>
+      <span className="whitespace-nowrap text-right font-semibold">Ack Date:</span>
+      <span className="text-right font-semibold">{displayDate(sale.einvoice.ackDate)}</span>
+      <span className="whitespace-nowrap font-semibold">E-Way Bill No.:</span>
+      <span className="font-semibold">{displayValue(sale.eway.billNo)}</span>
+      <span className="whitespace-nowrap text-right font-semibold">Date:</span>
+      <span className="text-right font-semibold">{displayDate(sale.eway.billDate)}</span>
+    </div>
+  );
+}
+
+function displayValue(value: string | null | undefined) {
+  return hasDisplayValue(value) ? value!.trim() : "-";
+}
+
+function displayDate(value: string | null | undefined) {
+  return hasDisplayValue(value) ? formatDate(value!) : "-";
+}
+
+function hasEinvoicePrintData(sale: Sale) {
+  return [
+    sale.einvoice.irn,
+    sale.einvoice.ackNo,
+    sale.einvoice.ackDate,
+    sale.eway.billNo,
+    sale.eway.billDate
+  ].some(hasDisplayValue);
+}
+
+function SalePrintBankDetails({
+  bankAccount
 }: {
-  date: string;
-  number: string;
-  workOrder: string;
+  bankAccount: CompanyRecord["bankAccounts"][number];
 }) {
   return (
-    <>
-      <div className="font-medium">Document details</div>
-      <div className="mt-2 grid grid-cols-[5rem_1fr] gap-x-2">
-        <span>Invoice No</span>
-        <span className="font-semibold">{number}</span>
-        <span>Date</span>
-        <span>{date}</span>
-        <span>Work Order</span>
-        <span>{workOrder || "-"}</span>
+    <div className="mt-3">
+      <div className="font-semibold">Bank Details</div>
+      <div className="mt-1 grid grid-cols-[4.5rem_minmax(0,1fr)_3.5rem_minmax(0,1fr)] gap-x-2">
+        {hasDisplayValue(bankAccount.bankName) ? (
+          <>
+            <span>Bank</span>
+            <span className="col-span-3 font-semibold">{bankAccount.bankName}</span>
+          </>
+        ) : null}
+        {hasDisplayValue(bankAccount.holderName) ? (
+          <>
+            <span>A/c Name</span>
+            <span className="col-span-3 font-semibold">{bankAccount.holderName}</span>
+          </>
+        ) : null}
+        <span>A/c No.</span>
+        <span className="font-semibold">{bankAccount.accountNumber}</span>
+        {hasDisplayValue(bankAccount.accountType) ? (
+          <>
+            <span>Type</span>
+            <span className="font-semibold">{bankAccount.accountType}</span>
+          </>
+        ) : (
+          <>
+            <span />
+            <span />
+          </>
+        )}
+        {hasDisplayValue(bankAccount.branch) ? (
+          <>
+            <span>Branch</span>
+            <span className="font-semibold">{bankAccount.branch}</span>
+          </>
+        ) : null}
+        {hasDisplayValue(bankAccount.ifsc) ? (
+          <>
+            <span>IFSC</span>
+            <span className="font-semibold">{bankAccount.ifsc}</span>
+          </>
+        ) : null}
       </div>
-    </>
+    </div>
   );
 }
 

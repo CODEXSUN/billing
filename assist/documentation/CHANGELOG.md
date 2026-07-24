@@ -2,9 +2,29 @@
 
 ## Version State
 
-Current version: 1.0.45
-Release tag: v-1.0.45
-Changelog label: v 1.0.45
+Current version: 1.0.46
+Release tag: v-1.0.46
+Changelog label: v 1.0.46
+
+## v-1.0.46
+
+### [v 1.0.46] 2026-07-24 10:39 am - Complete sales invoice print details
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Added conditional e-invoice and e-way acknowledgement details beside the invoice metadata; the
+  panel appears only when e-invoice printing is enabled and document data exists.
+- Refined bill-to and ship-to emphasis, compacted the item header, added the double divider, and
+  moved the non-shrinking `E&OE` label into the totals row.
+- Added the primary company bank account below invoice terms when account-number printing is
+  enabled, without exposing missing or non-default bank details.
+- Loaded company branding before auto-print so the print document has the complete company-owned
+  financial context.
+- Bumped repository version to 1.0.46.
 
 ## v-1.0.45
 
